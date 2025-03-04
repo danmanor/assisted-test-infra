@@ -390,9 +390,18 @@ class Cluster(BaseCluster):
             machine_networks = [self.get_machine_networks()[0]]
 
         elif self._config.load_balancer_type == consts.LoadBalancerType.USER_MANAGED.value:
-            log.info("User managed load balancer. Setting the VIPs to the load balancer IP")
-            api_vips = ingress_vips = [ApiVip(ip=self._get_load_balancer_ip()).to_dict()]
-            machine_networks = self.get_machine_networks() + [self.get_load_balancer_network_cidr()]
+            if controller.tf_platform == consts.Platforms.BARE_METAL:
+                log.info("Setting the VIPs to the fixed load balancer IP")
+                api_vips = ingress_vips = [ApiVip(ip=self._get_load_balancer_ip()).to_dict()]
+                machine_networks = self.get_machine_networks() + [self.get_load_balancer_network_cidr()]
+            elif controller.tf_platform == consts.Platforms.VSPHERE:
+                log.info("Setting the VIP and machine networks to the provided configuration")
+                access_vips = controller.get_ingress_and_api_vips()
+                api_vips = access_vips["api_vips"] if access_vips else None
+                ingress_vips = access_vips["ingress_vips"] if access_vips else None
+                machine_networks = self.get_machine_networks() + [self._config.load_balancer_cidr]
+            else:
+                raise NotImplementedError("user-managed LB is supported for 'baremetal' and 'vsphere' platforms only")
 
         else:
             log.info("Assigning VIPs statically")
@@ -1006,7 +1015,7 @@ class Cluster(BaseCluster):
                 consts.Platforms.NONE,
                 consts.Platforms.EXTERNAL,
             ]
-            or self._config.load_balancer_type == consts.LoadBalancerType.USER_MANAGED.value
+            or (self._config.load_balancer_type == consts.LoadBalancerType.USER_MANAGED.value and self.nodes.controller.tf_platform == consts.Platforms.BARE_METAL)
         ):
             self._configure_load_balancer()
             self.nodes.controller.set_dns_for_user_managed_network()
