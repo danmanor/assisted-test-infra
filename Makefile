@@ -138,7 +138,7 @@ endif
 
 all: setup run deploy_nodes_with_install
 
-destroy: destroy_nodes delete_minikube delete_kind destroy_host_port_forwarding_and_firewall delete_onprem stop_load_balancer
+destroy: destroy_nodes cleanup_vlan delete_minikube delete_kind destroy_host_port_forwarding_and_firewall delete_onprem stop_load_balancer
 
 ###############
 # Environment #
@@ -265,6 +265,9 @@ kill_all_port_forwardings:
 destroy_host_port_forwarding_and_firewall:
 	scripts/utils.sh delete_all_port_forwarding
 	firewall-cmd --reload || true
+
+cleanup_vlan:
+	bash scripts/cleanup_vlan.sh
 
 
 #########
